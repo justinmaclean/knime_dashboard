@@ -202,6 +202,33 @@
     <script>
         let workflowData = [];
         let selectedWorkflows = new Set();
+        let workflowColorMap = {};
+
+        const PLOTLY_COLORS = [
+            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+            '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
+            '#c49c94', '#f7b6d2', '#c7c7c7', '#dbdb8d', '#9edae5'
+        ];
+
+        function buildColorMap() {
+            const filtered = getFilteredData();
+            const workflows = [...new Set(filtered
+                .filter(d => d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS')
+                .map(d => d.workflow_name)
+            )];
+            // Sort by average duration (longest first) to match the stacked bar order
+            const avgDurations = {};
+            workflows.forEach(wf => {
+                const durations = filtered.filter(d => d.workflow_name === wf).map(d => d.duration_seconds);
+                avgDurations[wf] = durations.reduce((a, b) => a + b, 0) / durations.length;
+            });
+            const sorted = workflows.sort((a, b) => avgDurations[b] - avgDurations[a]);
+            workflowColorMap = {};
+            sorted.forEach((wf, i) => {
+                workflowColorMap[wf] = PLOTLY_COLORS[i % PLOTLY_COLORS.length];
+            });
+        }
 
         function setStatus(message, type = 'info') {
             const statusEl = document.getElementById('status');
@@ -363,6 +390,7 @@
                     y: dates.map(date => (wfByDate[date] || 0) / 60),
                     type: 'bar',
                     name: wf,
+                    marker: { color: workflowColorMap[wf] },
                     hovertemplate: '<b>' + wf + '</b><br>%{x}<br>%{y:.1f} minutes<extra></extra>'
                 };
             });
@@ -467,6 +495,7 @@
                 type: 'bar',
                 orientation: 'h',
                 name: item.name,
+                marker: { color: workflowColorMap[item.name] },
                 showlegend: false,
                 hovertemplate: '<b>' + item.name + '</b><br>' +
                     item.start.toLocaleTimeString() + ' - ' + item.end.toLocaleTimeString() +
@@ -502,6 +531,7 @@
         }
 
         function renderCharts() {
+            buildColorMap();
             renderTotalChart();
             renderWorkflowChart();
             initTimelineDatePicker();

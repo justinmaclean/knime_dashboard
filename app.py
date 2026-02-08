@@ -14,7 +14,6 @@ app = Flask(__name__)
 
 # Persistent history file (survives beyond Slack's 90-day retention)
 HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workflow_history.json')
-LEGACY_CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workflow_cache.json')
 
 # Configuration
 SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
@@ -152,17 +151,6 @@ def load_history():
     except (FileNotFoundError, ValueError):
         return pd.DataFrame()
 
-def migrate_legacy_cache():
-    """One-time migration: seed history from old cache file if history doesn't exist yet"""
-    if not os.path.exists(HISTORY_FILE) and os.path.exists(LEGACY_CACHE_FILE):
-        try:
-            df = pd.read_json(LEGACY_CACHE_FILE, convert_dates=False)
-            df.to_json(HISTORY_FILE, orient='records', date_format='iso')
-            print(f"Migrated {len(df)} records from workflow_cache.json to workflow_history.json")
-        except (ValueError, Exception) as e:
-            print(f"Could not migrate legacy cache: {e}")
-
-migrate_legacy_cache()
 
 @app.route('/')
 def index():

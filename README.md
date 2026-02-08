@@ -35,7 +35,12 @@ A Flask web app that monitors KNIME workflow execution times by reading completi
 
    ```bash
    python -m venv venv
+
+   # macOS / Linux
    source venv/bin/activate
+
+   # Windows
+   venv\Scripts\activate
    ```
 
 3. Install dependencies:

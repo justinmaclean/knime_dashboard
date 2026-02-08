@@ -435,8 +435,8 @@
                         type: 'scatter',
                         mode: 'lines+markers',
                         name: workflow,
-                        line: { width: 2 },
-                        marker: { size: 5 },
+                        line: { width: 2, color: workflowColorMap[workflow] },
+                        marker: { size: 5, color: workflowColorMap[workflow] },
                         hovertemplate: '<b>' + workflow + '</b><br>%{x}<br>Duration: %{text}<extra></extra>',
                         text: wfData.map(d => formatDuration(d.duration_seconds))
                     });

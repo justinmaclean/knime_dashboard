@@ -487,9 +487,9 @@
                 return { name: d.workflow_name, start, end, duration: d.duration_seconds };
             }).sort((a, b) => a.start - b.start);
 
-            // Build horizontal bar traces (one per workflow so each gets its own color)
-            const traces = items.map(item => ({
-                y: [item.name],
+            // Build horizontal bar traces using numeric y indices (no left-side labels)
+            const traces = items.map((item, i) => ({
+                y: [i],
                 x: [item.duration * 1000],
                 base: [item.start.toISOString()],
                 type: 'bar',
@@ -505,7 +505,17 @@
             // Find the time range for the x-axis
             const earliest = items[0].start;
             const latest = items[items.length - 1].end;
-            const pad = (latest - earliest) * 0.02;
+            const pad = (latest - earliest) * 0.05;
+
+            // Add workflow name annotations to the right of each bar
+            const annotations = items.map((item, i) => ({
+                x: item.end.toISOString(),
+                y: i,
+                text: ' ' + item.name,
+                showarrow: false,
+                xanchor: 'left',
+                font: { size: 12 }
+            }));
 
             const layout = {
                 xaxis: {
@@ -518,12 +528,13 @@
                     tickformat: '%H:%M'
                 },
                 yaxis: {
-                    automargin: true,
+                    showticklabels: false,
                     autorange: 'reversed'
                 },
+                annotations: annotations,
                 barmode: 'overlay',
                 hovermode: 'closest',
-                margin: { l: 200, r: 30, t: 10, b: 60 },
+                margin: { l: 20, r: 200, t: 10, b: 60 },
                 height: Math.max(400, items.length * 30 + 100)
             };
 

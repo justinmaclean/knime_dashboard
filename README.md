@@ -83,6 +83,15 @@ Invoice ETL : Completed in 8 mins, 12 secs
 Nightly Process Completed
 ```
 
+## Quick Start
+
+Instead of the manual setup above, you can double-click a startup script that handles everything automatically (creates a virtual environment, installs dependencies, opens the browser, and starts the server):
+
+- **macOS / Linux**: double-click `start.command`
+- **Windows**: double-click `start.bat`
+
+> **Note:** You still need to create the `.env` file (step 4 above) before using the startup scripts.
+
 ## Project Structure
 
 ```
@@ -91,6 +100,8 @@ knime_dashboard/
   requirements.txt    # Python dependencies
   .env                # Slack credentials (not committed)
   .gitignore
+  start.command       # macOS / Linux one-click launcher
+  start.bat           # Windows one-click launcher
   templates/
     index.html        # Dashboard frontend
   workflow_history.json  # Persistent local data (not committed)

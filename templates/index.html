@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNIME Workflow Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .status {
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            background: #f8f9fa;
+            color: #666;
+        }
+        
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .workflow-selector {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .workflow-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .workflow-item {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        
+        .workflow-item:hover {
+            background: #f8f9fa;
+            border-color: #007bff;
+        }
+        
+        .workflow-item.selected {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .workflow-item input {
+            margin-right: 8px;
+        }
+        
+        #totalChart {
+            min-height: 400px;
+        }
+        
+        #workflowChart {
+            min-height: 500px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>KNIME Workflow Dashboard</h1>
+        <div class="controls">
+            <span id="status" class="status">Ready</span>
+            <select id="daysSelect" onchange="renderCharts()">
+                <option value="30">Last 30 days</option>
+                <option value="60">Last 60 days</option>
+                <option value="90" selected>Last 90 days</option>
+                <option value="180">Last 180 days</option>
+                <option value="365">Last 365 days</option>
+                <option value="0">All time</option>
+            </select>
+            <button id="refreshBtn" onclick="refreshData()">Refresh from Slack</button>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <div class="chart-title">Total Nightly Process Duration</div>
+        <div id="totalChart"></div>
+    </div>
+    
+    <div class="workflow-selector">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="chart-title" style="margin-bottom: 0;">Select Workflows to Display</div>
+            <button onclick="toggleAllWorkflows()" id="toggleAllBtn" style="font-size: 12px; padding: 6px 14px;">Select All</button>
+        </div>
+        <div class="workflow-grid" id="workflowList"></div>
+    </div>
+    
+    <div class="chart-container">
+        <div class="chart-title">Individual Workflow Execution Times</div>
+        <div id="workflowChart"></div>
+    </div>
+
+    <script>
+        let workflowData = [];
+        let selectedWorkflows = new Set();
+
+        function setStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+
+        function getFilteredData() {
+            const days = parseInt(document.getElementById('daysSelect').value);
+            if (days === 0) return workflowData;
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            const cutoffStr = cutoff.toISOString().slice(0, 10);
+            return workflowData.filter(d => d.date >= cutoffStr);
+        }
+
+        async function refreshData() {
+            const btn = document.getElementById('refreshBtn');
+
+            btn.disabled = true;
+            setStatus('Loading data from Slack...', 'loading');
+
+            try {
+                const response = await fetch('/api/refresh');
+                const result = await response.json();
+
+                if (result.success) {
+                    workflowData = result.data;
+                    setStatus(result.message, 'success');
+                    renderCharts();
+                    renderWorkflowList();
+                } else {
+                    setStatus(result.message, 'error');
+                }
+            } catch (error) {
+                setStatus('Error loading data: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        
+        async function loadCachedData() {
+            setStatus('Loading cached data...', 'loading');
+            
+            try {
+                const response = await fetch('/api/data');
+                const result = await response.json();
+                
+                if (result.success) {
+                    workflowData = result.data;
+                    setStatus('Showing cached data', 'info');
+                    renderCharts();
+                    renderWorkflowList();
+                } else {
+                    setStatus('No cached data. Click Refresh to load from Slack.', 'info');
+                }
+            } catch (error) {
+                setStatus('Error loading cached data: ' + error.message, 'error');
+            }
+        }
+        
+        function renderWorkflowList() {
+            const filtered = getFilteredData();
+            const workflows = [...new Set(filtered
+                .filter(d => d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS')
+                .map(d => d.workflow_name)
+            )].sort();
+
+            const container = document.getElementById('workflowList');
+            container.innerHTML = '';
+
+            workflows.forEach(workflow => {
+                const div = document.createElement('div');
+                div.className = 'workflow-item' + (selectedWorkflows.has(workflow) ? ' selected' : '');
+                div.innerHTML = `
+                    <input type="checkbox" 
+                           id="wf-${workflow}" 
+                           ${selectedWorkflows.has(workflow) ? 'checked' : ''}
+                           onchange="toggleWorkflow('${workflow.replace(/'/g, "\\'")}')">
+                    <label for="wf-${workflow}">${workflow}</label>
+                `;
+                container.appendChild(div);
+            });
+            updateToggleAllBtn();
+        }
+
+        function toggleWorkflow(workflow) {
+            if (selectedWorkflows.has(workflow)) {
+                selectedWorkflows.delete(workflow);
+            } else {
+                selectedWorkflows.add(workflow);
+            }
+            renderWorkflowList();
+            renderWorkflowChart();
+        }
+
+        function toggleAllWorkflows() {
+            const filtered = getFilteredData();
+            const allWorkflows = [...new Set(filtered
+                .filter(d => d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS')
+                .map(d => d.workflow_name)
+            )];
+            if (selectedWorkflows.size === allWorkflows.length) {
+                selectedWorkflows.clear();
+            } else {
+                selectedWorkflows = new Set(allWorkflows);
+            }
+            renderWorkflowList();
+            renderWorkflowChart();
+        }
+
+        function updateToggleAllBtn() {
+            const filtered = getFilteredData();
+            const allCount = new Set(filtered
+                .filter(d => d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS')
+                .map(d => d.workflow_name)
+            ).size;
+            const btn = document.getElementById('toggleAllBtn');
+            btn.textContent = selectedWorkflows.size === allCount ? 'Deselect All' : 'Select All';
+        }
+
+        function formatDuration(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            if (mins > 0) {
+                return `${mins}m ${secs}s`;
+            }
+            return `${secs}s`;
+        }
+        
+        function renderTotalChart() {
+            const filtered = getFilteredData();
+            const individualData = filtered.filter(d => d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS');
+
+            if (individualData.length === 0) {
+                document.getElementById('totalChart').innerHTML = '<p style="color: #666; padding: 20px;">No total process data available</p>';
+                return;
+            }
+
+            // Get sorted unique dates
+            const dates = [...new Set(individualData.map(d => d.date))].sort();
+
+            // Get all workflows, sorted by overall average duration (longest first for bottom of stack)
+            const workflows = [...new Set(individualData.map(d => d.workflow_name))];
+            const avgDurations = {};
+            workflows.forEach(wf => {
+                const durations = individualData.filter(d => d.workflow_name === wf).map(d => d.duration_seconds);
+                avgDurations[wf] = durations.reduce((a, b) => a + b, 0) / durations.length;
+            });
+            const sortedWorkflows = workflows.sort((a, b) => avgDurations[b] - avgDurations[a]);
+
+            // Build a stacked bar trace per workflow
+            const traces = sortedWorkflows.map(wf => {
+                const wfByDate = {};
+                individualData.filter(d => d.workflow_name === wf).forEach(d => { wfByDate[d.date] = d.duration_seconds; });
+
+                return {
+                    x: dates,
+                    y: dates.map(date => (wfByDate[date] || 0) / 60),
+                    type: 'bar',
+                    name: wf,
+                    hovertemplate: '<b>' + wf + '</b><br>%{x}<br>%{y:.1f} minutes<extra></extra>'
+                };
+            });
+
+            const layout = {
+                xaxis: { title: 'Date', type: 'date' },
+                yaxis: { title: 'Duration (minutes)' },
+                barmode: 'stack',
+                hovermode: 'closest',
+                showlegend: false,
+                margin: { l: 60, r: 30, t: 30, b: 60 }
+            };
+
+            Plotly.newPlot('totalChart', traces, layout, { responsive: true });
+
+            document.getElementById('totalChart').on('plotly_click', function(data) {
+                const clickedWorkflow = data.points[0].data.name;
+                selectedWorkflows = new Set([clickedWorkflow]);
+                renderWorkflowList();
+                renderWorkflowChart();
+            });
+        }
+        
+        function renderWorkflowChart() {
+            if (selectedWorkflows.size === 0) {
+                document.getElementById('workflowChart').innerHTML = '<p style="color: #666; padding: 20px;">Select workflows to display</p>';
+                return;
+            }
+            
+            const traces = [];
+            
+            const filtered = getFilteredData();
+            selectedWorkflows.forEach(workflow => {
+                const wfData = filtered
+                    .filter(d => d.workflow_name === workflow)
+                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                if (wfData.length > 0) {
+                    traces.push({
+                        x: wfData.map(d => d.date),
+                        y: wfData.map(d => d.duration_seconds),
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        name: workflow,
+                        line: { width: 2 },
+                        marker: { size: 5 },
+                        hovertemplate: '<b>' + workflow + '</b><br>%{x}<br>Duration: %{text}<extra></extra>',
+                        text: wfData.map(d => formatDuration(d.duration_seconds))
+                    });
+                }
+            });
+            
+            const layout = {
+                xaxis: { title: 'Date', type: 'date' },
+                yaxis: { title: 'Duration (seconds)' },
+                hovermode: 'closest',
+                showlegend: true,
+                legend: { orientation: 'v', x: 1.02, y: 1 },
+                margin: { l: 60, r: 200, t: 30, b: 60 }
+            };
+            
+            Plotly.newPlot('workflowChart', traces, layout, { responsive: true });
+        }
+        
+        function renderCharts() {
+            renderTotalChart();
+            renderWorkflowChart();
+        }
+        
+        // Load cached data on page load
+        window.addEventListener('load', loadCachedData);
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+.env
+workflow_cache.json
+workflow_history.json
+__pycache__/
+*.pyc
+.DS_Store

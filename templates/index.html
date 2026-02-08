@@ -190,6 +190,15 @@
         <div id="workflowChart"></div>
     </div>
 
+    <div class="chart-container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="chart-title" style="margin-bottom: 0;">Workflow Execution Timeline</div>
+            <input type="date" id="timelineDatePicker" onchange="renderTimelineChart()"
+                   style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; cursor: pointer;">
+        </div>
+        <div id="timelineChart" style="min-height: 500px;"></div>
+    </div>
+
     <script>
         let workflowData = [];
         let selectedWorkflows = new Set();
@@ -418,11 +427,87 @@
             Plotly.newPlot('workflowChart', traces, layout, { responsive: true });
         }
         
+        function initTimelineDatePicker() {
+            const picker = document.getElementById('timelineDatePicker');
+            if (!picker.value) {
+                picker.value = new Date().toISOString().slice(0, 10);
+            }
+        }
+
+        function renderTimelineChart() {
+            const picker = document.getElementById('timelineDatePicker');
+            const selectedDate = picker.value;
+            if (!selectedDate) {
+                document.getElementById('timelineChart').innerHTML = '<p style="color: #666; padding: 20px;">Select a date to view the timeline</p>';
+                return;
+            }
+
+            const dayData = workflowData.filter(d =>
+                d.date === selectedDate && d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS'
+            );
+
+            if (dayData.length === 0) {
+                document.getElementById('timelineChart').innerHTML = '<p style="color: #666; padding: 20px;">No workflow data for ' + selectedDate + '</p>';
+                return;
+            }
+
+            // Each record has a timestamp (completion time) and duration_seconds.
+            // Derive start = timestamp - duration, end = timestamp.
+            const items = dayData.map(d => {
+                const end = new Date(d.timestamp);
+                const start = new Date(end.getTime() - d.duration_seconds * 1000);
+                return { name: d.workflow_name, start, end, duration: d.duration_seconds };
+            }).sort((a, b) => a.start - b.start);
+
+            // Build horizontal bar traces (one per workflow so each gets its own color)
+            const traces = items.map(item => ({
+                y: [item.name],
+                x: [item.duration * 1000],
+                base: [item.start.toISOString()],
+                type: 'bar',
+                orientation: 'h',
+                name: item.name,
+                showlegend: false,
+                hovertemplate: '<b>' + item.name + '</b><br>' +
+                    item.start.toLocaleTimeString() + ' - ' + item.end.toLocaleTimeString() +
+                    '<br>' + formatDuration(item.duration) + '<extra></extra>'
+            }));
+
+            // Find the time range for the x-axis
+            const earliest = items[0].start;
+            const latest = items[items.length - 1].end;
+            const pad = (latest - earliest) * 0.02;
+
+            const layout = {
+                xaxis: {
+                    title: 'Time',
+                    type: 'date',
+                    range: [
+                        new Date(earliest.getTime() - pad).toISOString(),
+                        new Date(latest.getTime() + pad).toISOString()
+                    ],
+                    tickformat: '%H:%M'
+                },
+                yaxis: {
+                    automargin: true,
+                    autorange: 'reversed'
+                },
+                barmode: 'overlay',
+                hovermode: 'closest',
+                margin: { l: 200, r: 30, t: 10, b: 60 },
+                height: Math.max(400, items.length * 30 + 100)
+            };
+
+            Plotly.newPlot('timelineChart', traces, layout, { responsive: true });
+        }
+
         function renderCharts() {
             renderTotalChart();
             renderWorkflowChart();
+            initTimelineDatePicker();
+            renderTimelineChart();
         }
-        
+
         // Load cached data on page load
         window.addEventListener('load', loadCachedData);
     </script>

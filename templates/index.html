@@ -107,43 +107,83 @@
             margin-bottom: 15px;
         }
         
-        .workflow-selector {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+        .wf-dropdown {
+            position: relative;
+            display: inline-block;
         }
-        
-        .workflow-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .workflow-item {
-            padding: 8px 12px;
+        .wf-dropdown-toggle {
+            padding: 8px 14px;
             border: 1px solid #ddd;
             border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.2s;
             background: white;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 240px;
+            justify-content: space-between;
         }
-        
-        .workflow-item:hover {
-            background: #f8f9fa;
+        .wf-dropdown-toggle:hover {
             border-color: #007bff;
         }
-        
-        .workflow-item.selected {
-            background: #007bff;
-            color: white;
+        .wf-dropdown-toggle .arrow {
+            font-size: 10px;
+            color: #999;
+        }
+        .wf-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 100;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 300px;
+            max-height: 350px;
+            overflow-y: auto;
+            margin-top: 4px;
+        }
+        .wf-dropdown-menu.open {
+            display: block;
+        }
+        .wf-dropdown-menu label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 14px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+        .wf-dropdown-menu label:hover {
+            background: #f0f4ff;
+        }
+        .wf-dropdown-search {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            z-index: 1;
+        }
+        .wf-dropdown-search input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+        }
+        .wf-dropdown-search input:focus {
             border-color: #007bff;
         }
-        
-        .workflow-item input {
-            margin-right: 8px;
+        .wf-dropdown-menu .wf-toggle-all {
+            border-bottom: 1px solid #eee;
+            font-weight: 600;
         }
         
         #totalChart {
@@ -152,6 +192,67 @@
         
         #workflowChart {
             min-height: 500px;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .modal-header h3 {
+            color: #d62728;
+            font-size: 18px;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0 4px;
+        }
+        .modal-close:hover {
+            color: #333;
+            background: none;
+        }
+        .modal-meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        .modal-error {
+            background: #f8f8f8;
+            border-left: 4px solid #d62728;
+            padding: 16px;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+            color: #333;
         }
     </style>
 </head>
@@ -177,16 +278,17 @@
         <div id="totalChart"></div>
     </div>
     
-    <div class="workflow-selector">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div class="chart-title" style="margin-bottom: 0;">Select Workflows to Display</div>
-            <button onclick="toggleAllWorkflows()" id="toggleAllBtn" style="font-size: 12px; padding: 6px 14px;">Select All</button>
-        </div>
-        <div class="workflow-grid" id="workflowList"></div>
-    </div>
-    
     <div class="chart-container">
-        <div class="chart-title">Individual Workflow Execution Times</div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="chart-title" style="margin-bottom: 0;">Individual Workflow Execution Times</div>
+            <div class="wf-dropdown" id="wfDropdown">
+                <div class="wf-dropdown-toggle" onclick="toggleDropdown()">
+                    <span id="wfDropdownLabel">Select workflows...</span>
+                    <span class="arrow">&#9660;</span>
+                </div>
+                <div class="wf-dropdown-menu" id="wfDropdownMenu"></div>
+            </div>
+        </div>
         <div id="workflowChart"></div>
     </div>
 
@@ -197,6 +299,17 @@
                    style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; cursor: pointer;">
         </div>
         <div id="timelineChart" style="min-height: 500px;"></div>
+    </div>
+
+    <div class="modal-overlay" id="errorModal" onclick="if(event.target===this)closeErrorModal()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle"></h3>
+                <button class="modal-close" onclick="closeErrorModal()">&times;</button>
+            </div>
+            <div class="modal-meta" id="modalMeta"></div>
+            <div class="modal-error" id="modalError"></div>
+        </div>
     </div>
 
     <script>
@@ -290,65 +403,162 @@
             }
         }
         
-        function renderWorkflowList() {
+        let wfSearchFilter = '';
+
+        function toggleDropdown() {
+            const menu = document.getElementById('wfDropdownMenu');
+            menu.classList.toggle('open');
+            if (menu.classList.contains('open')) {
+                const input = menu.querySelector('.wf-dropdown-search input');
+                if (input) setTimeout(() => input.focus(), 0);
+            }
+        }
+
+        // Close dropdown when clicking outside and reset search
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('wfDropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                const menu = document.getElementById('wfDropdownMenu');
+                if (menu.classList.contains('open')) {
+                    menu.classList.remove('open');
+                    if (wfSearchFilter) {
+                        wfSearchFilter = '';
+                        renderWorkflowList();
+                    }
+                }
+            }
+        });
+
+        function getAllWorkflows() {
             const filtered = getFilteredData();
-            const workflows = [...new Set(filtered
+            return [...new Set(filtered
                 .filter(d => d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS')
                 .map(d => d.workflow_name)
             )].sort();
+        }
 
-            const container = document.getElementById('workflowList');
-            container.innerHTML = '';
+        function updateDropdownLabel() {
+            const label = document.getElementById('wfDropdownLabel');
+            const allWfs = getAllWorkflows();
+            if (selectedWorkflows.size === 0) {
+                label.textContent = 'Select workflows...';
+            } else if (selectedWorkflows.size === allWfs.length) {
+                label.textContent = `All workflows (${allWfs.length})`;
+            } else {
+                label.textContent = `${selectedWorkflows.size} of ${allWfs.length} selected`;
+            }
+        }
 
-            workflows.forEach(workflow => {
-                const div = document.createElement('div');
-                div.className = 'workflow-item' + (selectedWorkflows.has(workflow) ? ' selected' : '');
-                div.innerHTML = `
-                    <input type="checkbox" 
-                           id="wf-${workflow}" 
-                           ${selectedWorkflows.has(workflow) ? 'checked' : ''}
-                           onchange="toggleWorkflow('${workflow.replace(/'/g, "\\'")}')">
-                    <label for="wf-${workflow}">${workflow}</label>
-                `;
-                container.appendChild(div);
+        function renderWorkflowList() {
+            const workflows = getAllWorkflows();
+            const allSelected = workflows.length > 0 && selectedWorkflows.size === workflows.length;
+            const filter = wfSearchFilter.toLowerCase();
+            const visible = filter ? workflows.filter(w => w.toLowerCase().includes(filter)) : workflows;
+
+            const menu = document.getElementById('wfDropdownMenu');
+            menu.innerHTML = '';
+
+            // Search input (sticky at top)
+            const searchDiv = document.createElement('div');
+            searchDiv.className = 'wf-dropdown-search';
+            searchDiv.innerHTML = `<input type="text" placeholder="Search workflows..." value="${wfSearchFilter}">`;
+            const searchInput = searchDiv.querySelector('input');
+            searchInput.addEventListener('input', function(e) {
+                wfSearchFilter = e.target.value;
+                renderWorkflowList();
+                // Re-focus and restore cursor position
+                const newInput = document.querySelector('.wf-dropdown-search input');
+                if (newInput) {
+                    newInput.focus();
+                    newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+                }
             });
-            updateToggleAllBtn();
-        }
+            menu.appendChild(searchDiv);
 
-        function toggleWorkflow(workflow) {
-            if (selectedWorkflows.has(workflow)) {
-                selectedWorkflows.delete(workflow);
-            } else {
-                selectedWorkflows.add(workflow);
+            // Select/Deselect All option
+            const allLabel = document.createElement('label');
+            allLabel.className = 'wf-toggle-all';
+            allLabel.innerHTML = `<input type="checkbox" ${allSelected ? 'checked' : ''}> ${allSelected ? 'Deselect All' : 'Select All'}`;
+            allLabel.querySelector('input').addEventListener('change', function() {
+                if (allSelected) {
+                    selectedWorkflows.clear();
+                } else {
+                    selectedWorkflows = new Set(workflows);
+                }
+                renderWorkflowList();
+                renderWorkflowChart();
+            });
+            menu.appendChild(allLabel);
+
+            // Filtered workflow options
+            visible.forEach(workflow => {
+                const label = document.createElement('label');
+                const checked = selectedWorkflows.has(workflow) ? 'checked' : '';
+                label.innerHTML = `<input type="checkbox" ${checked}> ${workflow}`;
+                label.querySelector('input').addEventListener('change', function() {
+                    if (selectedWorkflows.has(workflow)) {
+                        selectedWorkflows.delete(workflow);
+                    } else {
+                        selectedWorkflows.add(workflow);
+                    }
+                    renderWorkflowList();
+                    renderWorkflowChart();
+                });
+                menu.appendChild(label);
+            });
+
+            if (filter && visible.length === 0) {
+                const noMatch = document.createElement('div');
+                noMatch.style.cssText = 'padding: 10px 14px; color: #999; font-size: 13px;';
+                noMatch.textContent = 'No matching workflows';
+                menu.appendChild(noMatch);
             }
-            renderWorkflowList();
-            renderWorkflowChart();
+
+            updateDropdownLabel();
         }
 
-        function toggleAllWorkflows() {
-            const filtered = getFilteredData();
-            const allWorkflows = [...new Set(filtered
-                .filter(d => d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS')
-                .map(d => d.workflow_name)
-            )];
-            if (selectedWorkflows.size === allWorkflows.length) {
-                selectedWorkflows.clear();
-            } else {
-                selectedWorkflows = new Set(allWorkflows);
-            }
-            renderWorkflowList();
-            renderWorkflowChart();
+        function cleanSlackFormatting(text) {
+            if (!text) return '';
+            return text
+                .replace(/<@[A-Z0-9]+>/g, '')
+                .replace(/<(https?:\/\/[^|>]+)\|?[^>]*>/g, '$1')
+                .trim();
         }
 
-        function updateToggleAllBtn() {
-            const filtered = getFilteredData();
-            const allCount = new Set(filtered
-                .filter(d => d.workflow_name !== 'TOTAL_NIGHTLY_PROCESS')
-                .map(d => d.workflow_name)
-            ).size;
-            const btn = document.getElementById('toggleAllBtn');
-            btn.textContent = selectedWorkflows.size === allCount ? 'Deselect All' : 'Select All';
+        function formatErrorForHover(errorMessage) {
+            if (!errorMessage) return '';
+            // Show only the first sentence (up to first period or newline)
+            const cleaned = cleanSlackFormatting(errorMessage);
+            const firstLine = cleaned.split('\n')[0];
+            const periodIdx = firstLine.indexOf('.');
+            return periodIdx > 0 ? firstLine.substring(0, periodIdx + 1) : firstLine;
         }
+
+        function setTimelineDate(dateStr) {
+            // Normalize to YYYY-MM-DD (Plotly may return full ISO or date-only)
+            // Use UTC methods to avoid timezone shift (JS treats date-only strings as UTC)
+            const d = new Date(dateStr);
+            const yyyy = d.getUTCFullYear();
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            document.getElementById('timelineDatePicker').value = yyyy + '-' + mm + '-' + dd;
+            renderTimelineChart();
+        }
+
+        function openErrorModal(workflowName, date, duration, errorMessage) {
+            document.getElementById('modalTitle').textContent = workflowName + ' — Error';
+            document.getElementById('modalMeta').textContent = date + '  •  Duration: ' + formatDuration(duration);
+            document.getElementById('modalError').textContent = cleanSlackFormatting(errorMessage);
+            document.getElementById('errorModal').classList.add('active');
+        }
+
+        function closeErrorModal() {
+            document.getElementById('errorModal').classList.remove('active');
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeErrorModal();
+        });
 
         function formatDuration(seconds) {
             const mins = Math.floor(seconds / 60);
@@ -383,15 +593,29 @@
             // Build a stacked bar trace per workflow
             const traces = sortedWorkflows.map(wf => {
                 const wfByDate = {};
-                individualData.filter(d => d.workflow_name === wf).forEach(d => { wfByDate[d.date] = d.duration_seconds; });
+                individualData.filter(d => d.workflow_name === wf).forEach(d => {
+                    wfByDate[d.date] = { duration: d.duration_seconds, status: d.status || 'success', error_message: d.error_message || '' };
+                });
 
                 return {
                     x: dates,
-                    y: dates.map(date => (wfByDate[date] || 0) / 60),
+                    y: dates.map(date => ((wfByDate[date] || {}).duration || 0) / 60),
                     type: 'bar',
                     name: wf,
-                    marker: { color: workflowColorMap[wf] },
-                    hovertemplate: '<b>' + wf + '</b><br>%{x}<br>%{y:.1f} minutes<extra></extra>'
+                    marker: {
+                        color: workflowColorMap[wf],
+                        pattern: {
+                            shape: dates.map(date => (wfByDate[date] && wfByDate[date].status === 'error') ? '/' : ''),
+                            solidity: 0.5
+                        }
+                    },
+                    hovertemplate: dates.map(date => {
+                        const entry = wfByDate[date];
+                        if (entry && entry.status === 'error') {
+                            return '<b>' + wf + ' (ERROR)</b><br>%{x}<br>%{y:.1f} minutes<br>' + formatErrorForHover(entry.error_message) + '<br><span style="color: white; text-decoration: underline;">Click for details</span><extra></extra>';
+                        }
+                        return '<b>' + wf + '</b><br>%{x}<br>%{y:.1f} minutes<extra></extra>';
+                    })
                 };
             });
 
@@ -400,6 +624,7 @@
                 yaxis: { title: 'Duration (minutes)' },
                 barmode: 'stack',
                 hovermode: 'closest',
+                hoverlabel: { align: 'left' },
                 showlegend: false,
                 margin: { l: 60, r: 30, t: 30, b: 60 }
             };
@@ -407,8 +632,16 @@
             Plotly.newPlot('totalChart', traces, layout, { responsive: true });
 
             document.getElementById('totalChart').on('plotly_click', function(data) {
-                const clickedWorkflow = data.points[0].data.name;
-                selectedWorkflows = new Set([clickedWorkflow]);
+                const pt = data.points[0];
+                const wf = pt.data.name;
+                const date = pt.x;
+                setTimelineDate(date);
+                const entry = individualData.find(d => d.workflow_name === wf && d.date === date);
+                if (entry && (entry.status || 'success') === 'error') {
+                    openErrorModal(wf, date, entry.duration_seconds, entry.error_message);
+                    return;
+                }
+                selectedWorkflows = new Set([wf]);
                 renderWorkflowList();
                 renderWorkflowChart();
             });
@@ -436,8 +669,18 @@
                         mode: 'lines+markers',
                         name: workflow,
                         line: { width: 2, color: workflowColorMap[workflow] },
-                        marker: { size: 5, color: workflowColorMap[workflow] },
-                        hovertemplate: '<b>' + workflow + '</b><br>%{x}<br>Duration: %{text}<extra></extra>',
+                        marker: {
+                            size: wfData.map(d => (d.status || 'success') === 'error' ? 12 : 5),
+                            symbol: wfData.map(d => (d.status || 'success') === 'error' ? 'x' : 'circle'),
+                            color: wfData.map(d => (d.status || 'success') === 'error' ? '#d62728' : workflowColorMap[workflow])
+                        },
+                        hovertemplate: wfData.map(d => {
+                            const base = '<b>' + workflow + ((d.status || 'success') === 'error' ? ' (ERROR)' : '') + '</b><br>%{x}<br>Duration: ' + formatDuration(d.duration_seconds);
+                            if ((d.status || 'success') === 'error') {
+                                return base + '<br>' + formatErrorForHover(d.error_message) + '<br><span style="color: white; text-decoration: underline;">Click for details</span><extra></extra>';
+                            }
+                            return base + '<extra></extra>';
+                        }),
                         text: wfData.map(d => formatDuration(d.duration_seconds))
                     });
                 }
@@ -447,12 +690,24 @@
                 xaxis: { title: 'Date', type: 'date' },
                 yaxis: { title: 'Duration (seconds)' },
                 hovermode: 'closest',
+                hoverlabel: { align: 'left' },
                 showlegend: true,
                 legend: { orientation: 'v', x: 1.02, y: 1 },
                 margin: { l: 60, r: 200, t: 30, b: 60 }
             };
-            
+
             Plotly.newPlot('workflowChart', traces, layout, { responsive: true });
+
+            document.getElementById('workflowChart').on('plotly_click', function(data) {
+                const pt = data.points[0];
+                const workflow = pt.data.name;
+                const date = pt.x;
+                setTimelineDate(date);
+                const entry = filtered.find(d => d.workflow_name === workflow && d.date === date);
+                if (entry && (entry.status || 'success') === 'error') {
+                    openErrorModal(workflow, date, entry.duration_seconds, entry.error_message);
+                }
+            });
         }
         
         function initTimelineDatePicker() {
@@ -484,7 +739,11 @@
             const items = dayData.map(d => {
                 const end = new Date(d.timestamp);
                 const start = new Date(end.getTime() - d.duration_seconds * 1000);
-                return { name: d.workflow_name, start, end, duration: d.duration_seconds };
+                return {
+                    name: d.workflow_name, start, end, duration: d.duration_seconds,
+                    status: d.status || 'success',
+                    error_message: d.error_message || ''
+                };
             }).sort((a, b) => a.start - b.start);
 
             // Build horizontal bar traces using numeric y indices (no left-side labels)
@@ -495,11 +754,16 @@
                 type: 'bar',
                 orientation: 'h',
                 name: item.name,
-                marker: { color: workflowColorMap[item.name] },
+                marker: {
+                    color: workflowColorMap[item.name],
+                    pattern: item.status === 'error' ? { shape: '/', solidity: 0.5 } : {}
+                },
                 showlegend: false,
-                hovertemplate: '<b>' + item.name + '</b><br>' +
+                hovertemplate: '<b>' + item.name + (item.status === 'error' ? ' (ERROR)' : '') + '</b><br>' +
                     item.start.toLocaleTimeString() + ' - ' + item.end.toLocaleTimeString() +
-                    '<br>' + formatDuration(item.duration) + '<extra></extra>'
+                    '<br>' + formatDuration(item.duration) +
+                    (item.status === 'error' ? '<br>' + formatErrorForHover(item.error_message) + '<br><span style="color: white; text-decoration: underline;">Click for details</span>' : '') +
+                    '<extra></extra>'
             }));
 
             // Find the time range for the x-axis
@@ -511,10 +775,10 @@
             const annotations = items.map((item, i) => ({
                 x: item.end.toISOString(),
                 y: i,
-                text: ' ' + item.name,
+                text: ' ' + item.name + (item.status === 'error' ? ' (ERROR)' : ''),
                 showarrow: false,
                 xanchor: 'left',
-                font: { size: 12 }
+                font: { size: 12, color: item.status === 'error' ? '#d62728' : '#333' }
             }));
 
             const layout = {
@@ -534,11 +798,20 @@
                 annotations: annotations,
                 barmode: 'overlay',
                 hovermode: 'closest',
+                hoverlabel: { align: 'left' },
                 margin: { l: 20, r: 200, t: 10, b: 60 },
                 height: Math.max(400, items.length * 30 + 100)
             };
 
             Plotly.newPlot('timelineChart', traces, layout, { responsive: true });
+
+            document.getElementById('timelineChart').on('plotly_click', function(data) {
+                const idx = data.points[0].data.y[0];
+                const item = items[idx];
+                if (item && item.status === 'error') {
+                    openErrorModal(item.name, selectedDate, item.duration, item.error_message);
+                }
+            });
         }
 
         function renderCharts() {

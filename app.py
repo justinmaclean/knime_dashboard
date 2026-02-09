@@ -100,21 +100,23 @@ def parse_workflow_data(messages):
     workflow_data = []
     current_date = None
     start_time = None
-    
+    prev_msg_datetime = None
+
     # Sort messages by timestamp (oldest first)
     messages = sorted(messages, key=lambda x: float(x['ts']))
-    
+
     for msg in messages:
         text = msg.get('text', '')
         timestamp = float(msg['ts'])
         msg_datetime = datetime.fromtimestamp(timestamp)
-        
+
         # Check for "Starting Nightly Process"
         if 'Starting Nightly Process' in text:
             current_date = msg_datetime.date()
             start_time = msg_datetime
+            prev_msg_datetime = msg_datetime
             continue
-        
+
         # Check for "Nightly Process Completed"
         if 'Nightly Process Completed' in text:
             if start_time and current_date:
@@ -123,30 +125,79 @@ def parse_workflow_data(messages):
                     'workflow_name': 'TOTAL_NIGHTLY_PROCESS',
                     'date': current_date,
                     'duration_seconds': total_duration,
-                    'timestamp': msg_datetime
+                    'timestamp': msg_datetime,
+                    'status': 'success',
+                    'error_message': ''
                 })
+            prev_msg_datetime = msg_datetime
             continue
-        
+
         # Parse workflow completion messages
         match = re.match(r'^(.+?)\s*:\s*Completed in\s+(.+)$', text)
         if match and current_date:
             workflow_name = match.group(1).strip()
             duration_str = match.group(2).strip()
             duration_seconds = parse_duration(duration_str)
-            
+
             workflow_data.append({
                 'workflow_name': workflow_name,
                 'date': current_date,
                 'duration_seconds': duration_seconds,
-                'timestamp': msg_datetime
+                'timestamp': msg_datetime,
+                'status': 'success',
+                'error_message': ''
             })
-    
+            prev_msg_datetime = msg_datetime
+            continue
+
+        # Parse workflow failure messages
+        lines = text.split('\n')
+        failure_match = re.match(r'^(.+?)\s*:\s*(Failure.*)', lines[0])
+        if failure_match and current_date:
+            workflow_name = failure_match.group(1).strip()
+
+            # Calculate duration from previous message timestamp
+            duration_seconds = 0
+            if prev_msg_datetime:
+                duration_seconds = (msg_datetime - prev_msg_datetime).total_seconds()
+
+            # Collect error message: failure text + any additional lines
+            error_parts = [failure_match.group(2).strip()]
+            if len(lines) > 1:
+                error_parts.extend(lines[1:])
+            error_message = '\n'.join(error_parts).strip()
+
+            workflow_data.append({
+                'workflow_name': workflow_name,
+                'date': current_date,
+                'duration_seconds': duration_seconds,
+                'timestamp': msg_datetime,
+                'status': 'error',
+                'error_message': error_message
+            })
+            prev_msg_datetime = msg_datetime
+            continue
+
+        # Update prev_msg_datetime for any unrecognized message within a nightly process
+        if current_date:
+            prev_msg_datetime = msg_datetime
+
     return workflow_data
 
 def load_history():
     """Load existing historical data from disk"""
     try:
         df = pd.read_json(HISTORY_FILE, convert_dates=False)
+        # Ensure status and error_message columns exist (backward compatibility)
+        if 'status' not in df.columns:
+            df['status'] = 'success'
+        if 'error_message' not in df.columns:
+            df['error_message'] = ''
+        df['error_message'] = df['error_message'].fillna('')
+        # Normalize dates to YYYY-MM-DD (strip any time component)
+        if 'date' in df.columns:
+            df['date'] = df['date'].astype(str).str[:10]
+            df = df.drop_duplicates(subset=['workflow_name', 'date'], keep='last')
         return df
     except (FileNotFoundError, ValueError):
         return pd.DataFrame()
@@ -167,7 +218,7 @@ def refresh_data():
     new_df = pd.DataFrame(workflow_data)
 
     if not new_df.empty:
-        new_df['date'] = new_df['date'].astype(str)
+        new_df['date'] = new_df['date'].astype(str).str[:10]
         new_df['timestamp'] = new_df['timestamp'].astype(str)
 
     # Load existing history and merge
